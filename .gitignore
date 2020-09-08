@@ -1,0 +1,6 @@
+*.txt
+vis
+runs
+save_model
+__pycache__
+
