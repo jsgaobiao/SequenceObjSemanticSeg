@@ -8,7 +8,7 @@ from decoder import Decoder, DecoderWithoutRNN
 from model import ED
 from net_params import convlstm_encoder_params, convlstm_decoder_params, convgru_sposs_encoder_params, convgru_sposs_decoder_params
 from data.MovingMNIST import MovingMNIST
-from data.sposs import SemanticPOSS
+from data.sposs_single_frame import SemanticPOSS
 import torch
 from torch import nn
 from torch.optim import lr_scheduler
@@ -127,9 +127,11 @@ else:
 def train():
     '''
     main function to run the training
-    '''
-    encoder = Encoder(encoder_params[0], encoder_params[1]).cuda()
-    decoder = Decoder(decoder_params[0], decoder_params[1]).cuda()
+    # '''
+    # encoder = Encoder(encoder_params[0], encoder_params[1]).cuda()
+    # decoder = Decoder(decoder_params[0], decoder_params[1]).cuda()
+    encoder = EncoderWithoutRNN(encoder_params[0]).cuda()
+    decoder = DecoderWithoutRNN(decoder_params[0]).cuda()
     net = ED(encoder, decoder)
     run_dir = './runs/' + TIMESTAMP + args.mname
     if not os.path.isdir(run_dir):
@@ -161,7 +163,7 @@ def train():
     optimizer = optim.Adam(net.parameters(), lr=args.lr)
     pla_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
                                                       factor=0.5,
-                                                      patience=5,
+                                                      patience=10,
                                                       verbose=True)
 
     # to track the training loss as the model trains
@@ -181,9 +183,9 @@ def train():
         # tqdm 进度条
         t = tqdm(trainLoader, total=len(trainLoader))
         for i, (seq_len, scan_seq, _, mask_seq, _) in enumerate(t):
-            # 序列长度不固定，至少前2帧用来输入，固定预测后3帧
-            inputs = inputs = torch.cat((scan_seq, mask_seq.float()), dim=2).to(device)[:,:-3,...]   # B,S,C,H,W
-            label = mask_seq.to(device)[:,(seq_len-3):,...]     # B,S,C,H,W    
+            # 固定长度为一帧
+            inputs = torch.cat((scan_seq, mask_seq.float()), dim=2).to(device)   # B,S,C,H,W
+            label = mask_seq.to(device)    # B,S,C,H,W    
             optimizer.zero_grad()
             net.train()         # 将module设置为 training mode，只影响dropout和batchNorm
             pred = net(inputs)  # B,S,C,H,W
@@ -225,7 +227,7 @@ def train():
                     break
                 # 序列长度不固定，至少前2帧用来输入，固定预测后3帧
                 inputs = torch.cat((scan_seq, mask_seq.float()), dim=2).to(device)   # B,S,C,H,W
-                label = mask_seq.to(device)[:,(seq_len-3):,...]     # B,S,C,H,W    
+                label = mask_seq.to(device)    # B,S,C,H,W    
                 pred = net(inputs)
 
                 # 在tensorboard中绘制可视化结果
@@ -248,7 +250,6 @@ def train():
                     'validloss': '{:.6f}'.format(loss_aver),
                     'epoch': '{:02d}'.format(epoch)
                 })
-                # get_visualization_example(inputs, label, pred)
 
         tb.add_scalar('ValidLoss', np.average(valid_losses), epoch)
         torch.cuda.empty_cache()

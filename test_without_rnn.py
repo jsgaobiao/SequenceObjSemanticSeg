@@ -3,12 +3,12 @@
 
 import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "3"
-from encoder import Encoder
-from decoder import Decoder
+from encoder import Encoder, EncoderWithoutRNN
+from decoder import Decoder, DecoderWithoutRNN
 from model import ED
 from net_params import convlstm_encoder_params, convlstm_decoder_params, convgru_sposs_encoder_params, convgru_sposs_decoder_params
 from data.MovingMNIST import MovingMNIST
-from data.sposs import SemanticPOSS
+from data.sposs_single_frame import SemanticPOSS
 import torch
 import cv2
 import time
@@ -100,7 +100,7 @@ if not os.path.isdir(args.dataset):
     raise ValueError("dataset folder [{0}] doesn't exist! Exiting...".format(args.dataset))
 
 testFolder = SemanticPOSS(root=args.dataset,
-                        sequences=CONFIG["split"]["test"],
+                        sequences=CONFIG["split"]["train"],
                         labels=CONFIG["labels"],
                         color_map=CONFIG["color_map"],
                         learning_map=CONFIG["learning_map"],
@@ -179,8 +179,8 @@ def test():
     '''
     main function to run the testing
     '''
-    encoder = Encoder(encoder_params[0], encoder_params[1]).cuda()
-    decoder = Decoder(decoder_params[0], decoder_params[1]).cuda()
+    encoder = EncoderWithoutRNN(encoder_params[0]).cuda()
+    decoder = DecoderWithoutRNN(decoder_params[0]).cuda()
     net = ED(encoder, decoder)
     
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -218,9 +218,8 @@ def test():
         # tqdm 进度条
         t = tqdm(testLoader, total=len(testLoader))
         for i, (seq_len, scan_seq, label_seq, mask_seq, label_id) in enumerate(t):
-            # 序列长度不固定，至少前2帧用来输入，固定预测后3帧
-            inputs = inputs = torch.cat((scan_seq, mask_seq.float()), dim=2).to(device)[:,:-3,...]   # B,S,C,H,W
-            label = mask_seq.to(device)[:,(seq_len-3):,...]     # B,S,C,H,W    
+            inputs = torch.cat((scan_seq, mask_seq.float()), dim=2).to(device)   # B,S,C,H,W
+            label = mask_seq.to(device)    # B,S,C,H,W    
             pred = net(inputs)
             SaveVis(model_dir, i, scan_seq.to(device), mask_seq.to(device), pred)
             seq_number, batch_size, input_channel, height, width = pred.size() 
@@ -236,8 +235,7 @@ def test():
                 'test_loss': '{:.6f}'.format(loss_aver),
                 'cnt': '{:02d}'.format(i)
             })
-            # 参数中限制了要测试的样本数量
-            if i >= args.sample and args.sample > 0:
+            if i >= args.sample:
                 break
 
     torch.cuda.empty_cache()

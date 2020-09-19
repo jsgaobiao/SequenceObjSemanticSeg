@@ -7,7 +7,7 @@ from ConvRNN import CGRU_cell, CLSTM_cell
 
 convgru_sposs_encoder_params = [
     [
-        OrderedDict({'conv1_leaky_1': [4, 16, 3, 1, 1],
+        OrderedDict({'conv1_leaky_1': [5, 16, 3, 1, 1],
                      'conv2_leaky_1': [16, 32, 3, 2, 1],
                      'conv3_leaky_1': [32, 64, 3, 2, 1],
                      'conv4_leaky_1': [64, 128, 3, 2, 1]}),

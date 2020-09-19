@@ -43,6 +43,31 @@ class Decoder(nn.Module):
         inputs = inputs.transpose(0, 1)  # to B,S,1,64,64
         return inputs
 
+class DecoderWithoutRNN(nn.Module):
+    def __init__(self, subnets):
+        super().__init__()
+
+        self.blocks = len(subnets)
+
+        for index, params in enumerate(subnets, 0):
+            setattr(self, 'stage' + str(self.blocks - index), make_layers(params))
+
+    def forward_by_stage(self, inputs, subnet):
+        seq_number, batch_size, input_channel, height, width = inputs.size()
+        inputs = torch.reshape(inputs, (-1, input_channel, height, width))
+        inputs = subnet(inputs)
+        inputs = torch.reshape(inputs, (seq_number, batch_size, inputs.size(1),
+                                        inputs.size(2), inputs.size(3)))
+        return inputs
+
+        # input: 5D S*B*C*H*W
+
+    def forward(self, inputs):
+        # inputs: S,B,C,H,W
+        inputs = self.forward_by_stage(inputs, 
+                                       getattr(self, 'stage1'))
+        inputs = inputs.transpose(0, 1)  # to B,S,1,64,64
+        return inputs
 
 if __name__ == "__main__":
     from net_params import convlstm_encoder_params, convlstm_forecaster_params

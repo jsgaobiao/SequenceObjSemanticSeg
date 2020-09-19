@@ -6,7 +6,6 @@ from utils import make_layers
 import torch
 import logging
 
-
 class Encoder(nn.Module):
     def __init__(self, subnets, rnns):
         super().__init__()
@@ -41,6 +40,33 @@ class Encoder(nn.Module):
             hidden_states.append(state_stage)
         return tuple(hidden_states)
 
+class EncoderWithoutRNN(nn.Module):
+    '''
+        For directly connect Encoder and Decoder.
+    '''
+    def __init__(self, subnets):
+        super().__init__()
+        self.blocks = len(subnets)
+
+        for index, params in enumerate(subnets, 1):
+            # index sign from 1
+            setattr(self, 'stage' + str(index), make_layers(params))
+
+    def forward_by_stage(self, inputs, subnet):
+        seq_number, batch_size, input_channel, height, width = inputs.size() 
+        inputs = torch.reshape(inputs, (-1, input_channel, height, width))   # to S*B,1,64,64
+        inputs = subnet(inputs)
+        inputs = torch.reshape(inputs, (seq_number, batch_size, inputs.size(1),
+                                        inputs.size(2), inputs.size(3)))
+        return inputs
+
+    def forward(self, inputs):
+        inputs = inputs.transpose(0, 1)  # to S,B,1,64,64
+        for i in range(1, self.blocks + 1):
+            inputs = self.forward_by_stage(inputs, 
+                                            getattr(self, 'stage' + str(i))
+                                            )
+        return inputs
 
 if __name__ == "__main__":
     from net_params import convgru_encoder_params, convgru_decoder_params

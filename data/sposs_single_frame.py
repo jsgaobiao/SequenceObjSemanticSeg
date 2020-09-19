@@ -94,12 +94,10 @@ class SemanticPOSS(Dataset):
       for sd in range(len(seq_stat)):
         # DEBUG
         # 仅使用简单形状的类别进行训练
-        if (seq_stat[sd][1] == 0 or seq_stat[sd][1] > 17):
-          continue
+        # if (seq_stat[sd][1] == 0 or seq_stat[sd][1] == 9 or seq_stat[sd][1] == 15 or seq_stat[sd][1] > 17):
+        #   continue
         # DEBUG
         seq_dirs.append(os.path.join(os.path.expanduser(seq_path), str(sd)))
-      # print("seq_dirs: \n")
-      # print(seq_dirs[:10])
         
       # check all scans have labels
       if self.gt:
@@ -119,9 +117,8 @@ class SemanticPOSS(Dataset):
 
   def __getitem__(self, index):
     seq_info = np.loadtxt(os.path.join(self.seq_dirs[index], "seqInfo.txt"))
-    # DEBUG
-    if (seq_info.shape[0] > 8):
-      seq_info = seq_info[:8]
+    # DEBUG: 只用第一帧训练
+    seq_info = seq_info[:1]
 
     mask_seq = np.zeros((len(seq_info), 40, 256), dtype=np.int16)
     scan_seq = np.zeros((len(seq_info), 40, 256, 4), dtype=np.float32)
